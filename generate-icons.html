@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <title>CRM线索管家 - 图标生成器</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+      max-width: 600px;
+      margin: 40px auto;
+      padding: 20px;
+      background: #f5f7fa;
+    }
+    h1 {
+      color: #333;
+      text-align: center;
+    }
+    .icon-preview {
+      display: flex;
+      justify-content: center;
+      gap: 30px;
+      margin: 30px 0;
+    }
+    .icon-item {
+      text-align: center;
+    }
+    .icon-item canvas {
+      border-radius: 12px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    }
+    .icon-item p {
+      margin-top: 10px;
+      color: #666;
+      font-size: 14px;
+    }
+    .btn-group {
+      display: flex;
+      justify-content: center;
+      gap: 15px;
+      margin-top: 30px;
+    }
+    button {
+      padding: 12px 30px;
+      font-size: 16px;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .btn-primary {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+    }
+    .btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+    }
+    .btn-secondary {
+      background: white;
+      color: #667eea;
+      border: 1px solid #667eea;
+    }
+    .btn-secondary:hover {
+      background: #f0f3ff;
+    }
+    .instructions {
+      background: white;
+      padding: 20px;
+      border-radius: 12px;
+      margin-top: 30px;
+      line-height: 1.8;
+      color: #555;
+    }
+    .instructions h2 {
+      color: #333;
+      margin-top: 0;
+    }
+    .instructions ol {
+      padding-left: 20px;
+    }
+    .instructions li {
+      margin-bottom: 8px;
+    }
+    code {
+      background: #f5f7fa;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-family: 'Consolas', monospace;
+      font-size: 13px;
+    }
+  </style>
+</head>
+<body>
+  <h1>📊 CRM 线索管家 - 图标生成器</h1>
+
+  <div class="icon-preview">
+    <div class="icon-item">
+      <canvas id="icon16" width="16" height="16"></canvas>
+      <p>16x16</p>
+    </div>
+    <div class="icon-item">
+      <canvas id="icon48" width="48" height="48"></canvas>
+      <p>48x48</p>
+    </div>
+    <div class="icon-item">
+      <canvas id="icon128" width="128" height="128"></canvas>
+      <p>128x128</p>
+    </div>
+  </div>
+
+  <div class="btn-group">
+    <button class="btn-primary" onclick="downloadAllIcons()">📥 下载全部图标</button>
+    <button class="btn-secondary" onclick="downloadIcon(16)">下载 16px</button>
+    <button class="btn-secondary" onclick="downloadIcon(48)">下载 48px</button>
+    <button class="btn-secondary" onclick="downloadIcon(128)">下载 128px</button>
+  </div>
+
+  <div class="instructions">
+    <h2>📖 使用说明</h2>
+    <ol>
+      <li>点击"下载全部图标"按钮，会下载 3 个 PNG 图标文件</li>
+      <li>将下载的文件重命名为 <code>icon16.png</code>、<code>icon48.png</code>、<code>icon128.png</code></li>
+      <li>将这 3 个文件放入扩展的 <code>icons/</code> 目录中</li>
+      <li>在 Chrome 中打开 <code>chrome://extensions/</code></li>
+      <li>开启"开发者模式"</li>
+      <li>点击"加载已解压的扩展程序"</li>
+      <li>选择扩展的根目录即可</li>
+    </ol>
+    <p style="color: #999; font-size: 13px; margin-top: 20px;">
+      提示：如果没有图标，扩展也能正常工作，只是会显示 Chrome 默认的拼图图标。
+    </p>
+  </div>
+
+  <script>
+    function drawIcon(canvasId, size) {
+      const canvas = document.getElementById(canvasId);
+      const ctx = canvas.getContext('2d');
+
+      const gradient = ctx.createLinearGradient(0, 0, size, size);
+      gradient.addColorStop(0, '#667eea');
+      gradient.addColorStop(1, '#764ba2');
+
+      const radius = size * 0.2;
+      ctx.beginPath();
+      ctx.roundRect(0, 0, size, size, radius);
+      ctx.fillStyle = gradient;
+      ctx.fill();
+
+      ctx.fillStyle = 'white';
+      ctx.font = `bold ${size * 0.5}px Arial, sans-serif`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('📊', size / 2, size / 2);
+    }
+
+    drawIcon('icon16', 16);
+    drawIcon('icon48', 48);
+    drawIcon('icon128', 128);
+
+    function downloadIcon(size) {
+      const canvas = document.getElementById(`icon${size}`);
+      const link = document.createElement('a');
+      link.download = `icon${size}.png`;
+      link.href = canvas.toDataURL('image/png');
+      link.click();
+    }
+
+    function downloadAllIcons() {
+      setTimeout(() => downloadIcon(16), 0);
+      setTimeout(() => downloadIcon(48), 200);
+      setTimeout(() => downloadIcon(128), 400);
+    }
+  </script>
+</body>
+</html>

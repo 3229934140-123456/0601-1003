@@ -1,0 +1,494 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CRM线索管家</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="crm-app">
+    <header class="crm-header">
+      <div class="crm-logo">
+        <span class="crm-logo-icon">📊</span>
+        <span class="crm-logo-text">CRM 线索管家</span>
+      </div>
+      <div class="crm-header-actions">
+        <div class="crm-sync-indicator" id="syncIndicator">
+          <span class="crm-sync-dot"></span>
+          <span class="crm-sync-text">同步中...</span>
+        </div>
+      </div>
+    </header>
+
+    <nav class="crm-nav">
+      <div class="crm-nav-item active" data-view="leads">
+        <span>📇</span>
+        <span>线索</span>
+      </div>
+      <div class="crm-nav-item" data-view="followups">
+        <span>⏰</span>
+        <span>跟进</span>
+      </div>
+      <div class="crm-nav-item" data-view="notes">
+        <span>📝</span>
+        <span>记录</span>
+      </div>
+      <div class="crm-nav-item" data-view="favorites">
+        <span>⭐</span>
+        <span>收藏</span>
+      </div>
+      <div class="crm-nav-item" data-view="settings">
+        <span>⚙️</span>
+        <span>设置</span>
+      </div>
+    </nav>
+
+    <main class="crm-main">
+      <section class="crm-view active" id="viewLeads">
+        <div class="crm-view-header">
+          <h2>线索列表</h2>
+          <div class="crm-view-actions">
+            <button class="crm-btn-primary" id="addLeadBtn">+ 新建线索</button>
+          </div>
+        </div>
+
+        <div class="crm-toolbar">
+          <div class="crm-search-box">
+            <span>🔍</span>
+            <input type="text" id="leadSearch" placeholder="搜索公司、联系人、标签...">
+          </div>
+          <div class="crm-filters">
+            <select id="stageFilter">
+              <option value="">全部阶段</option>
+            </select>
+            <select id="sourceFilter">
+              <option value="">全部来源</option>
+            </select>
+            <select id="sortBy">
+              <option value="createdAt">按创建时间</option>
+              <option value="updatedAt">按更新时间</option>
+              <option value="companyName">按公司名称</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="crm-batch-actions" id="batchActions" style="display:none;">
+          <span class="crm-selected-count">已选 0 条</span>
+          <button class="crm-btn-secondary" id="batchTagBtn">批量打标签</button>
+          <button class="crm-btn-secondary" id="batchStageBtn">批量改阶段</button>
+          <button class="crm-btn-danger" id="batchDeleteBtn">批量删除</button>
+        </div>
+
+        <div class="crm-leads-grid" id="leadsGrid">
+          <div class="crm-empty-state">
+            <div class="crm-empty-icon">📋</div>
+            <p>暂无线索，开始采集你的第一条线索吧！</p>
+            <button class="crm-btn-primary" id="emptyAddBtn">+ 新建线索</button>
+          </div>
+        </div>
+
+        <div class="crm-view-footer">
+          <div class="crm-stats">
+            <span>共 <strong id="totalCount">0</strong> 条线索</span>
+            <span>本周新增 <strong id="weekCount">0</strong> 条</span>
+          </div>
+          <button class="crm-btn-secondary" id="exportBtn">📥 导出本周线索</button>
+        </div>
+      </section>
+
+      <section class="crm-view" id="viewFollowups">
+        <div class="crm-view-header">
+          <h2>跟进计划</h2>
+          <div class="crm-view-actions">
+            <button class="crm-btn-primary" id="addFollowUpBtn">+ 新建跟进</button>
+          </div>
+        </div>
+
+        <div class="crm-followup-tabs">
+          <div class="crm-followup-tab active" data-filter="upcoming">待跟进</div>
+          <div class="crm-followup-tab" data-filter="today">今日</div>
+          <div class="crm-followup-tab" data-filter="thisweek">本周</div>
+          <div class="crm-followup-tab" data-filter="completed">已完成</div>
+        </div>
+
+        <div class="crm-followups-container" id="followupsContainer">
+          <div class="crm-empty-state">
+            <div class="crm-empty-icon">📅</div>
+            <p>暂无待跟进事项</p>
+          </div>
+        </div>
+
+        <div class="crm-view-footer">
+          <button class="crm-btn-secondary" id="visitPlanBtn">📋 生成拜访清单</button>
+        </div>
+      </section>
+
+      <section class="crm-view" id="viewNotes">
+        <div class="crm-view-header">
+          <h2>沟通纪要</h2>
+        </div>
+
+        <div class="crm-toolbar">
+          <div class="crm-search-box">
+            <span>🔍</span>
+            <input type="text" id="noteSearch" placeholder="搜索记录内容...">
+          </div>
+        </div>
+
+        <div class="crm-notes-list" id="notesList">
+          <div class="crm-empty-state">
+            <div class="crm-empty-icon">📝</div>
+            <p>暂无沟通记录</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="crm-view" id="viewFavorites">
+        <div class="crm-view-header">
+          <h2>收藏页面</h2>
+        </div>
+
+        <div class="crm-favorites-list" id="favoritesList">
+          <div class="crm-empty-state">
+            <div class="crm-empty-icon">⭐</div>
+            <p>暂无收藏的页面</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="crm-view" id="viewSettings">
+        <div class="crm-view-header">
+          <h2>设置</h2>
+        </div>
+
+        <div class="crm-settings">
+          <div class="crm-setting-group">
+            <h3>通用设置</h3>
+            <div class="crm-setting-item">
+              <label>
+                <input type="checkbox" id="autoDetect">
+                <span>自动检测页面信息</span>
+              </label>
+            </div>
+            <div class="crm-setting-item">
+              <label>
+                <input type="checkbox" id="reminderEnabled">
+                <span>启用跟进提醒</span>
+              </label>
+            </div>
+          </div>
+
+          <div class="crm-setting-group">
+            <h3>默认设置</h3>
+            <div class="crm-setting-item">
+              <label>默认来源渠道</label>
+              <select id="defaultSource">
+              </select>
+            </div>
+            <div class="crm-setting-item">
+              <label>默认负责人</label>
+              <input type="text" id="defaultAssignee" placeholder="请输入">
+            </div>
+          </div>
+
+          <div class="crm-setting-group">
+            <h3>团队成员</h3>
+            <div class="crm-team-list" id="teamList">
+              <div class="crm-empty">暂无团队成员</div>
+            </div>
+            <div class="crm-add-team">
+              <input type="text" id="newTeamMember" placeholder="成员姓名">
+              <button class="crm-btn-secondary" id="addTeamBtn">添加</button>
+            </div>
+          </div>
+
+          <div class="crm-setting-group">
+            <h3>数据管理</h3>
+            <button class="crm-btn-secondary" id="exportAllBtn">📤 导出全部数据</button>
+            <button class="crm-btn-secondary" id="importBtn">📥 导入数据</button>
+            <input type="file" id="importFile" accept=".json" style="display:none;">
+            <button class="crm-btn-danger" id="clearDataBtn">🗑️ 清空所有数据</button>
+          </div>
+
+          <div class="crm-setting-group">
+            <h3>关于</h3>
+            <p class="crm-about-text">CRM线索管家 v1.0.0</p>
+            <p class="crm-about-text">帮助销售高效管理客户线索</p>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <div class="crm-modal-overlay" id="leadModal">
+      <div class="crm-modal crm-modal-large">
+        <div class="crm-modal-header">
+          <h3 id="leadModalTitle">新建线索</h3>
+          <button class="crm-modal-close" data-close>×</button>
+        </div>
+        <div class="crm-modal-body">
+          <div class="crm-lead-detail-tabs">
+            <div class="crm-detail-tab active" data-tab="info">基本信息</div>
+            <div class="crm-detail-tab" data-tab="profile">客户画像</div>
+            <div class="crm-detail-tab" data-tab="followup">跟进记录</div>
+            <div class="crm-detail-tab" data-tab="notes">沟通纪要</div>
+            <div class="crm-detail-tab" data-tab="activities">活动动态</div>
+          </div>
+
+          <div class="crm-detail-content active" id="tabInfo">
+            <form id="leadForm" class="crm-form">
+              <input type="hidden" id="leadId">
+              <div class="crm-form-row">
+                <div class="crm-form-group">
+                  <label>公司名称 *</label>
+                  <input type="text" id="leadCompanyName" required>
+                </div>
+                <div class="crm-form-group">
+                  <label>公司简称</label>
+                  <input type="text" id="leadShortName">
+                </div>
+              </div>
+              <div class="crm-form-row">
+                <div class="crm-form-group">
+                  <label>联系人</label>
+                  <input type="text" id="leadContact">
+                </div>
+                <div class="crm-form-group">
+                  <label>职位</label>
+                  <input type="text" id="leadTitle">
+                </div>
+              </div>
+              <div class="crm-form-row">
+                <div class="crm-form-group">
+                  <label>电话</label>
+                  <input type="tel" id="leadPhone">
+                </div>
+                <div class="crm-form-group">
+                  <label>邮箱</label>
+                  <input type="email" id="leadEmail">
+                </div>
+              </div>
+              <div class="crm-form-row">
+                <div class="crm-form-group">
+                  <label>网站</label>
+                  <input type="text" id="leadWebsite">
+                </div>
+                <div class="crm-form-group">
+                  <label>地址</label>
+                  <input type="text" id="leadAddress">
+                </div>
+              </div>
+              <div class="crm-form-row">
+                <div class="crm-form-group">
+                  <label>来源渠道</label>
+                  <select id="leadSource">
+                  </select>
+                </div>
+                <div class="crm-form-group">
+                  <label>商机阶段</label>
+                  <select id="leadStage">
+                  </select>
+                </div>
+              </div>
+              <div class="crm-form-row">
+                <div class="crm-form-group">
+                  <label>预算</label>
+                  <input type="text" id="leadBudget" placeholder="如：50-100万">
+                </div>
+                <div class="crm-form-group">
+                  <label>优先级</label>
+                  <select id="leadPriority">
+                    <option value="high">🔴 高</option>
+                    <option value="medium">🟡 中</option>
+                    <option value="low">🟢 低</option>
+                  </select>
+                </div>
+              </div>
+              <div class="crm-form-row">
+                <div class="crm-form-group">
+                  <label>负责人</label>
+                  <input type="text" id="leadAssignee">
+                </div>
+                <div class="crm-form-group">
+                  <label>行业</label>
+                  <input type="text" id="leadIndustry">
+                </div>
+              </div>
+              <div class="crm-form-group">
+                <label>公司规模</label>
+                <select id="leadSize">
+                  <option value="">请选择</option>
+                  <option value="1-10">1-10人</option>
+                  <option value="11-50">11-50人</option>
+                  <option value="51-200">51-200人</option>
+                  <option value="201-500">201-500人</option>
+                  <option value="501-1000">501-1000人</option>
+                  <option value="1000+">1000人以上</option>
+                </select>
+              </div>
+              <div class="crm-form-group">
+                <label>需求描述</label>
+                <textarea id="leadRequirements" rows="3" placeholder="客户的具体需求..."></textarea>
+              </div>
+              <div class="crm-form-group">
+                <label>标签（逗号分隔）</label>
+                <input type="text" id="leadTags" placeholder="如：重点客户, 高潜力">
+              </div>
+              <div class="crm-form-group">
+                <label>
+                  <input type="checkbox" id="leadFavorite">
+                  <span>设为重点客户 ⭐</span>
+                </label>
+              </div>
+            </form>
+          </div>
+
+          <div class="crm-detail-content" id="tabProfile">
+            <div class="crm-profile-section">
+              <h4>公司信息</h4>
+              <div class="crm-profile-grid">
+                <div class="crm-profile-item">
+                  <span class="crm-profile-label">成立时间</span>
+                  <input type="text" id="profileFounded" placeholder="如：2015年">
+                </div>
+                <div class="crm-profile-item">
+                  <span class="crm-profile-label">注册资本</span>
+                  <input type="text" id="profileCapital" placeholder="如：500万">
+                </div>
+                <div class="crm-profile-item">
+                  <span class="crm-profile-label">公司类型</span>
+                  <input type="text" id="profileType" placeholder="如：民营、国企">
+                </div>
+                <div class="crm-profile-item">
+                  <span class="crm-profile-label">所在地区</span>
+                  <input type="text" id="profileRegion" placeholder="如：华东、华南">
+                </div>
+              </div>
+            </div>
+            <div class="crm-profile-section">
+              <h4>业务信息</h4>
+              <div class="crm-profile-item">
+                <span class="crm-profile-label">主营业务</span>
+                <textarea id="profileBusiness" rows="2" placeholder="公司主要业务范围..."></textarea>
+              </div>
+              <div class="crm-profile-item">
+                <span class="crm-profile-label">主要产品</span>
+                <textarea id="profileProducts" rows="2" placeholder="主要产品或服务..."></textarea>
+              </div>
+            </div>
+            <div class="crm-profile-section">
+              <h4>决策链分析</h4>
+              <div class="crm-profile-item">
+                <span class="crm-profile-label">关键决策人</span>
+                <input type="text" id="profileDecisionMaker" placeholder="决策人姓名及职位">
+              </div>
+              <div class="crm-profile-item">
+                <span class="crm-profile-label">决策流程</span>
+                <textarea id="profileDecisionProcess" rows="2" placeholder="采购决策流程..."></textarea>
+              </div>
+            </div>
+            <div class="crm-profile-section">
+              <h4>客户评分</h4>
+              <div class="crm-profile-item">
+                <span class="crm-profile-label">意向程度</span>
+                <select id="profileIntent">
+                  <option value="low">低</option>
+                  <option value="medium" selected>中</option>
+                  <option value="high">高</option>
+                </select>
+              </div>
+              <div class="crm-profile-item">
+                <span class="crm-profile-label">客户价值</span>
+                <select id="profileValue">
+                  <option value="low">低价值</option>
+                  <option value="medium" selected>中价值</option>
+                  <option value="high">高价值</option>
+                  <option value="strategic">战略客户</option>
+                </select>
+              </div>
+            </div>
+            <button class="crm-btn-primary" id="saveProfileBtn">💾 保存画像</button>
+          </div>
+
+          <div class="crm-detail-content" id="tabFollowup">
+            <div class="crm-quick-followup">
+              <h4>添加跟进</h4>
+              <input type="text" id="quickFollowupTitle" placeholder="跟进主题">
+              <div class="crm-form-row">
+                <input type="date" id="quickFollowupDate">
+                <input type="time" id="quickFollowupTime">
+              </div>
+              <textarea id="quickFollowupContent" rows="2" placeholder="跟进内容..."></textarea>
+              <button class="crm-btn-primary" id="addQuickFollowupBtn">添加跟进</button>
+            </div>
+            <div class="crm-followup-history">
+              <h4>跟进历史</h4>
+              <div id="followupHistoryList" class="crm-followup-history-list">
+                <div class="crm-empty">暂无跟进记录</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="crm-detail-content" id="tabNotes">
+            <div class="crm-quick-note">
+              <h4>添加纪要</h4>
+              <textarea id="quickNoteContent" rows="3" placeholder="记录沟通内容..."></textarea>
+              <div class="crm-note-type-select">
+                <label>类型：</label>
+                <select id="quickNoteType">
+                  <option value="communication">沟通记录</option>
+                  <option value="meeting">会议纪要</option>
+                  <option value="email">邮件往来</option>
+                  <option value="call">电话沟通</option>
+                  <option value="visit">上门拜访</option>
+                  <option value="other">其他</option>
+                </select>
+              </div>
+              <button class="crm-btn-primary" id="addQuickNoteBtn">添加记录</button>
+            </div>
+            <div class="crm-notes-history">
+              <h4>历史记录</h4>
+              <div id="notesHistoryList" class="crm-notes-history-list">
+                <div class="crm-empty">暂无沟通记录</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="crm-detail-content" id="tabActivities">
+            <h4>活动动态</h4>
+            <div id="activitiesList" class="crm-activities-list">
+              <div class="crm-empty">暂无活动记录</div>
+            </div>
+          </div>
+        </div>
+        <div class="crm-modal-footer">
+          <button class="crm-btn-secondary" data-close>取消</button>
+          <button class="crm-btn-primary" id="saveLeadBtn">保存</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="crm-modal-overlay" id="duplicateModal">
+      <div class="crm-modal">
+        <div class="crm-modal-header">
+          <h3>⚠️ 疑似重复客户</h3>
+          <button class="crm-modal-close" data-close>×</button>
+        </div>
+        <div class="crm-modal-body">
+          <p>检测到以下可能重复的客户，请确认：</p>
+          <div id="duplicateList" class="crm-duplicate-list">
+          </div>
+        </div>
+        <div class="crm-modal-footer">
+          <button class="crm-btn-secondary" id="viewDuplicateBtn">查看详情</button>
+          <button class="crm-btn-primary" id="continueSaveBtn">仍然保存</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="crm-toast-container" id="toastContainer"></div>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>
