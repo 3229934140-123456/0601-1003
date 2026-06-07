@@ -187,6 +187,7 @@
 
       chrome.storage.local.set({ [STORAGE_KEYS.LEADS]: leads }, () => {
         panelState.leads = leads;
+        updateSyncStatusStorage();
         resolve(leads);
       });
     });
@@ -206,6 +207,7 @@
         };
         notes.unshift(newNote);
         chrome.storage.local.set({ [STORAGE_KEYS.NOTES]: notes }, () => {
+          updateSyncStatusStorage();
           resolve(notes);
         });
       });
@@ -227,6 +229,7 @@
         };
         followUps.unshift(newFollowUp);
         chrome.storage.local.set({ [STORAGE_KEYS.FOLLOW_UPS]: followUps }, () => {
+          updateSyncStatusStorage();
           resolve(followUps);
 
           if (followUpData.date) {
@@ -1152,6 +1155,27 @@
         dot.className = 'crm-sync-dot synced';
         text.textContent = '已同步';
       }
+    });
+  }
+
+  function updateSyncStatusStorage() {
+    chrome.storage.local.get([STORAGE_KEYS.LEADS, STORAGE_KEYS.FOLLOW_UPS, STORAGE_KEYS.NOTES], (result) => {
+      const leads = result[STORAGE_KEYS.LEADS] || [];
+      const followUps = result[STORAGE_KEYS.FOLLOW_UPS] || [];
+      const notes = result[STORAGE_KEYS.NOTES] || [];
+
+      const allItems = [...leads, ...followUps, ...notes];
+      const dirtyCount = allItems.filter(item => item.syncState === SYNC_STATE.DIRTY).length;
+
+      const syncStatus = {
+        lastSyncTime: null,
+        pendingCount: dirtyCount,
+        syncState: dirtyCount > 0 ? SYNC_STATE.DIRTY : SYNC_STATE.SYNCED
+      };
+
+      chrome.storage.local.set({ [STORAGE_KEYS.SYNC_STATUS]: syncStatus }, () => {
+        updateSyncStatus();
+      });
     });
   }
 

@@ -625,6 +625,14 @@
       leads = leads.filter(lead => lead.favorite === true);
     }
 
+    if (state.leadFilters._thisWeekOnly) {
+      const now = new Date();
+      const weekStart = new Date(now);
+      weekStart.setDate(now.getDate() - now.getDay());
+      weekStart.setHours(0, 0, 0, 0);
+      leads = leads.filter(lead => new Date(lead.createdAt) >= weekStart);
+    }
+
     const sortBy = state.leadFilters.sortBy;
     leads.sort((a, b) => {
       if (sortBy === 'companyName') {
@@ -1014,6 +1022,9 @@
 
     if (state.followupFilter === 'upcoming') {
       followUps = followUps.filter(f => !f.completed && f.date && new Date(f.date) >= todayStart)
+        .sort((a, b) => new Date(a.date) - new Date(b.date));
+    } else if (state.followupFilter === 'overdue') {
+      followUps = followUps.filter(f => !f.completed && f.date && new Date(f.date) < todayStart)
         .sort((a, b) => new Date(a.date) - new Date(b.date));
     } else if (state.followupFilter === 'today') {
       followUps = followUps.filter(f => {
@@ -1413,7 +1424,7 @@
 
     document.getElementById('addFollowUpBtn').addEventListener('click', openAddFollowUpModal);
 
-    document.getElementById('saveFollowUpModalBtn').addEventListener('click', handleSaveFollowUpFromModal);
+    document.getElementById('saveFollowUpBtn').addEventListener('click', handleSaveFollowUpFromModal);
 
     document.getElementById('visitPlanBtn').addEventListener('click', generateVisitPlan);
 
@@ -1784,14 +1795,38 @@
       card.onclick = () => {
         const stat = card.dataset.stat;
         if (stat === 'newLeads') {
+          state.leadFilters = {
+            search: '',
+            stage: '',
+            source: '',
+            assignee: '',
+            tag: '',
+            priority: '',
+            favorite: false,
+            sortBy: 'createdAt',
+            _thisWeekOnly: true
+          };
+          document.getElementById('leadSearch').value = '';
+          document.getElementById('stageFilter').value = '';
+          document.getElementById('sourceFilter').value = '';
+          document.getElementById('assigneeFilter').value = '';
+          document.getElementById('tagFilter').value = '';
+          document.getElementById('priorityFilter').value = '';
+          document.getElementById('favoriteFilter').checked = false;
+          updateFilterSelects();
+          updateClearFiltersBtn();
           switchView('leads');
-        } else if (stat === 'upcoming' || stat === 'overdue') {
-          if (stat === 'overdue') {
-            state.followupFilter = 'upcoming';
-            document.querySelectorAll('.crm-followup-tab').forEach(t => {
-              t.classList.toggle('active', t.dataset.filter === 'upcoming');
-            });
-          }
+        } else if (stat === 'upcoming') {
+          state.followupFilter = 'upcoming';
+          document.querySelectorAll('.crm-followup-tab').forEach(t => {
+            t.classList.toggle('active', t.dataset.filter === 'upcoming');
+          });
+          switchView('followups');
+        } else if (stat === 'overdue') {
+          state.followupFilter = 'overdue';
+          document.querySelectorAll('.crm-followup-tab').forEach(t => {
+            t.classList.toggle('active', t.dataset.filter === 'overdue');
+          });
           switchView('followups');
         } else if (stat === 'favorites') {
           state.leadFilters.favorite = true;
@@ -1837,7 +1872,8 @@
       state.leadFilters.assignee ||
       state.leadFilters.tag ||
       state.leadFilters.priority ||
-      state.leadFilters.favorite;
+      state.leadFilters.favorite ||
+      state.leadFilters._thisWeekOnly;
 
     const btn = document.getElementById('clearFiltersBtn');
     if (btn) {
@@ -1854,7 +1890,8 @@
       tag: '',
       priority: '',
       favorite: false,
-      sortBy: state.leadFilters.sortBy
+      sortBy: state.leadFilters.sortBy,
+      _thisWeekOnly: false
     };
 
     document.getElementById('leadSearch').value = '';
