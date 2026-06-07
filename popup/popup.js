@@ -1021,11 +1021,11 @@
     weekEnd.setHours(23, 59, 59, 999);
 
     if (state.followupFilter === 'upcoming') {
-      followUps = followUps.filter(f => !f.completed && f.date && new Date(f.date) >= todayStart)
+      followUps = followUps.filter(f => !f.completed && f.date && new Date(f.date) >= now)
         .sort((a, b) => new Date(a.date) - new Date(b.date));
     } else if (state.followupFilter === 'overdue') {
-      followUps = followUps.filter(f => !f.completed && f.date && new Date(f.date) < todayStart)
-        .sort((a, b) => new Date(a.date) - new Date(b.date));
+      followUps = followUps.filter(f => !f.completed && f.date && new Date(f.date) < now)
+        .sort((a, b) => new Date(b.date) - new Date(a.date));
     } else if (state.followupFilter === 'today') {
       followUps = followUps.filter(f => {
         if (!f.date) return false;
@@ -1312,14 +1312,15 @@
       });
     });
 
-    document.getElementById('addLeadBtn').addEventListener('click', () => openLeadModal());
+    document.getElementById('addLeadBtn')?.addEventListener('click', () => openLeadModal());
     document.getElementById('emptyAddBtn')?.addEventListener('click', () => openLeadModal());
-    document.getElementById('saveLeadBtn').addEventListener('click', handleSaveLead);
-    document.getElementById('syncIndicator').addEventListener('click', openSyncModal);
+    document.getElementById('saveLeadBtn')?.addEventListener('click', handleSaveLead);
+    document.getElementById('syncIndicator')?.addEventListener('click', openSyncModal);
 
-    document.getElementById('markAllSyncedBtn').addEventListener('click', markAllSynced);
+    document.getElementById('syncAllBtn')?.addEventListener('click', markAllSynced);
 
-    document.getElementById('exportBtn').addEventListener('click', () => {
+    document.getElementById('dashAddLeadBtn')?.addEventListener('click', () => openLeadModal());
+    document.getElementById('dashExportBtn')?.addEventListener('click', () => {
       const data = exportThisWeeksLeads();
       if (data.length === 0) {
         showToast('本周暂无线索可导出', 'info');
@@ -1329,56 +1330,66 @@
       showToast('导出成功', 'success');
     });
 
-    document.getElementById('leadSearch').addEventListener('input', (e) => {
+    document.getElementById('exportBtn')?.addEventListener('click', () => {
+      const data = exportThisWeeksLeads();
+      if (data.length === 0) {
+        showToast('本周暂无线索可导出', 'info');
+        return;
+      }
+      downloadCSV(data, `本周线索_${formatDate(new Date())}.csv`);
+      showToast('导出成功', 'success');
+    });
+
+    document.getElementById('leadSearch')?.addEventListener('input', (e) => {
       state.leadFilters.search = e.target.value;
       updateClearFiltersBtn();
       renderLeads();
     });
 
-    document.getElementById('stageFilter').addEventListener('change', (e) => {
+    document.getElementById('stageFilter')?.addEventListener('change', (e) => {
       state.leadFilters.stage = e.target.value;
       updateClearFiltersBtn();
       renderLeads();
     });
 
-    document.getElementById('sourceFilter').addEventListener('change', (e) => {
+    document.getElementById('sourceFilter')?.addEventListener('change', (e) => {
       state.leadFilters.source = e.target.value;
       updateClearFiltersBtn();
       renderLeads();
     });
 
-    document.getElementById('sortBy').addEventListener('change', (e) => {
+    document.getElementById('sortBy')?.addEventListener('change', (e) => {
       state.leadFilters.sortBy = e.target.value;
       renderLeads();
     });
 
-    document.getElementById('assigneeFilter').addEventListener('change', (e) => {
+    document.getElementById('assigneeFilter')?.addEventListener('change', (e) => {
       state.leadFilters.assignee = e.target.value;
       updateClearFiltersBtn();
       renderLeads();
     });
 
-    document.getElementById('tagFilter').addEventListener('change', (e) => {
+    document.getElementById('tagFilter')?.addEventListener('change', (e) => {
       state.leadFilters.tag = e.target.value;
       updateClearFiltersBtn();
       renderLeads();
     });
 
-    document.getElementById('priorityFilter').addEventListener('change', (e) => {
+    document.getElementById('priorityFilter')?.addEventListener('change', (e) => {
       state.leadFilters.priority = e.target.value;
       updateClearFiltersBtn();
       renderLeads();
     });
 
-    document.getElementById('favoriteFilter').addEventListener('change', (e) => {
+    document.getElementById('favoriteFilter')?.addEventListener('change', (e) => {
       state.leadFilters.favorite = e.target.checked;
       updateClearFiltersBtn();
       renderLeads();
     });
 
-    document.getElementById('clearFiltersBtn').addEventListener('click', clearAllFilters);
+    document.getElementById('clearFiltersBtn')?.addEventListener('click', clearAllFilters);
 
-    document.getElementById('batchTagBtn').addEventListener('click', async () => {
+    document.getElementById('batchTagBtn')?.addEventListener('click', async () => {
       const tagStr = prompt('请输入要添加的标签（多个标签用逗号分隔）：');
       if (tagStr) {
         const tags = tagStr.split(/[,，]/).map(t => t.trim()).filter(t => t);
@@ -1391,7 +1402,7 @@
       }
     });
 
-    document.getElementById('batchStageBtn').addEventListener('click', async () => {
+    document.getElementById('batchStageBtn')?.addEventListener('click', async () => {
       const stage = prompt('请输入目标阶段（initial/qualification/proposal/negotiation/closing/closed_won/closed_lost）：');
       if (stage && STAGE_OPTIONS.some(s => s.value === stage)) {
         await batchUpdateStage([...state.selectedLeads], stage);
@@ -1403,7 +1414,7 @@
       }
     });
 
-    document.getElementById('batchDeleteBtn').addEventListener('click', async () => {
+    document.getElementById('batchDeleteBtn')?.addEventListener('click', async () => {
       if (confirm(`确定要删除选中的 ${state.selectedLeads.size} 条线索吗？此操作不可恢复。`)) {
         await batchDelete([...state.selectedLeads]);
         state.selectedLeads.clear();
@@ -1422,15 +1433,15 @@
       });
     });
 
-    document.getElementById('addFollowUpBtn').addEventListener('click', openAddFollowUpModal);
+    document.getElementById('addFollowUpBtn')?.addEventListener('click', openAddFollowUpModal);
 
-    document.getElementById('saveFollowUpBtn').addEventListener('click', handleSaveFollowUpFromModal);
+    document.getElementById('saveFollowUpBtn')?.addEventListener('click', handleSaveFollowUpFromModal);
 
-    document.getElementById('visitPlanBtn').addEventListener('click', generateVisitPlan);
+    document.getElementById('visitPlanBtn')?.addEventListener('click', generateVisitPlan);
 
     document.getElementById('noteSearch')?.addEventListener('input', renderNotes);
 
-    document.getElementById('addTeamBtn').addEventListener('click', async () => {
+    document.getElementById('addTeamBtn')?.addEventListener('click', async () => {
       const input = document.getElementById('newTeamMember');
       const name = input.value.trim();
       if (name) {
@@ -1442,23 +1453,23 @@
       }
     });
 
-    document.getElementById('autoDetect').addEventListener('change', async (e) => {
+    document.getElementById('autoDetect')?.addEventListener('change', async (e) => {
       await saveSettings({ autoDetect: e.target.checked });
     });
 
-    document.getElementById('reminderEnabled').addEventListener('change', async (e) => {
+    document.getElementById('reminderEnabled')?.addEventListener('change', async (e) => {
       await saveSettings({ reminderEnabled: e.target.checked });
     });
 
-    document.getElementById('defaultSource').addEventListener('change', async (e) => {
+    document.getElementById('defaultSource')?.addEventListener('change', async (e) => {
       await saveSettings({ defaultSource: e.target.value });
     });
 
-    document.getElementById('defaultAssignee').addEventListener('change', async (e) => {
+    document.getElementById('defaultAssignee')?.addEventListener('change', async (e) => {
       await saveSettings({ defaultAssignee: e.target.value });
     });
 
-    document.getElementById('exportAllBtn').addEventListener('click', () => {
+    document.getElementById('exportAllBtn')?.addEventListener('click', () => {
       const allData = {
         leads: state.leads,
         followUps: state.followUps,
