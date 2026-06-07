@@ -14,7 +14,7 @@
         <span class="crm-logo-text">CRM 线索管家</span>
       </div>
       <div class="crm-header-actions">
-        <div class="crm-sync-indicator" id="syncIndicator">
+        <div class="crm-sync-indicator" id="syncIndicator" title="点击查看同步详情">
           <span class="crm-sync-dot"></span>
           <span class="crm-sync-text">同步中...</span>
         </div>
@@ -22,7 +22,11 @@
     </header>
 
     <nav class="crm-nav">
-      <div class="crm-nav-item active" data-view="leads">
+      <div class="crm-nav-item active" data-view="dashboard">
+        <span>📈</span>
+        <span>仪表盘</span>
+      </div>
+      <div class="crm-nav-item" data-view="leads">
         <span>📇</span>
         <span>线索</span>
       </div>
@@ -45,7 +49,62 @@
     </nav>
 
     <main class="crm-main">
-      <section class="crm-view active" id="viewLeads">
+      <section class="crm-view active" id="viewDashboard">
+        <div class="crm-view-header">
+          <h2>销售仪表盘</h2>
+        </div>
+        <div class="crm-dashboard">
+          <div class="crm-stat-cards">
+            <div class="crm-stat-card stat-primary" data-stat="newLeads">
+              <div class="crm-stat-icon">📋</div>
+              <div class="crm-stat-info">
+                <div class="crm-stat-value" id="statNewLeads">0</div>
+                <div class="crm-stat-label">本周新增线索</div>
+              </div>
+            </div>
+            <div class="crm-stat-card stat-success" data-stat="upcoming">
+              <div class="crm-stat-icon">⏰</div>
+              <div class="crm-stat-info">
+                <div class="crm-stat-value" id="statUpcoming">0</div>
+                <div class="crm-stat-label">待跟进</div>
+              </div>
+            </div>
+            <div class="crm-stat-card stat-danger" data-stat="overdue">
+              <div class="crm-stat-icon">⚠️</div>
+              <div class="crm-stat-info">
+                <div class="crm-stat-value" id="statOverdue">0</div>
+                <div class="crm-stat-label">逾期跟进</div>
+              </div>
+            </div>
+            <div class="crm-stat-card stat-warning" data-stat="favorites">
+              <div class="crm-stat-icon">⭐</div>
+              <div class="crm-stat-info">
+                <div class="crm-stat-value" id="statFavorites">0</div>
+                <div class="crm-stat-label">重点客户</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="crm-chart-section">
+            <h3 class="crm-section-title">商机阶段分布</h3>
+            <div class="crm-stage-distribution" id="stageDistribution">
+            </div>
+          </div>
+
+          <div class="crm-chart-section">
+            <h3 class="crm-section-title">来源渠道占比</h3>
+            <div class="crm-source-distribution" id="sourceDistribution">
+            </div>
+          </div>
+
+          <div class="crm-dashboard-actions">
+            <button class="crm-btn-primary" id="dashAddLeadBtn">+ 新建线索</button>
+            <button class="crm-btn-secondary" id="dashExportBtn">📥 导出本周线索</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="crm-view" id="viewLeads">
         <div class="crm-view-header">
           <h2>线索列表</h2>
           <div class="crm-view-actions">
@@ -58,13 +117,34 @@
             <span>🔍</span>
             <input type="text" id="leadSearch" placeholder="搜索公司、联系人、标签...">
           </div>
-          <div class="crm-filters">
+          <div class="crm-filters crm-filters-row">
             <select id="stageFilter">
               <option value="">全部阶段</option>
             </select>
             <select id="sourceFilter">
               <option value="">全部来源</option>
             </select>
+            <select id="assigneeFilter">
+              <option value="">全部负责人</option>
+            </select>
+            <select id="tagFilter">
+              <option value="">全部标签</option>
+            </select>
+            <select id="priorityFilter">
+              <option value="">全部优先级</option>
+              <option value="high">🔴 高优先级</option>
+              <option value="medium">🟡 中优先级</option>
+              <option value="low">🟢 低优先级</option>
+            </select>
+          </div>
+          <div class="crm-filter-toggles">
+            <label class="crm-toggle-label">
+              <input type="checkbox" id="favoriteFilter">
+              <span>⭐ 重点客户</span>
+            </label>
+            <button class="crm-clear-filters" id="clearFiltersBtn" style="display:none;">清空筛选</button>
+          </div>
+          <div class="crm-filters-row">
             <select id="sortBy">
               <option value="createdAt">按创建时间</option>
               <option value="updatedAt">按更新时间</option>
@@ -480,8 +560,104 @@
           </div>
         </div>
         <div class="crm-modal-footer">
-          <button class="crm-btn-secondary" id="viewDuplicateBtn">查看详情</button>
+          <button class="crm-btn-secondary" id="viewDuplicateDetailBtn">查看详情</button>
           <button class="crm-btn-primary" id="continueSaveBtn">仍然保存</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="crm-modal-overlay" id="syncModal">
+      <div class="crm-modal">
+        <div class="crm-modal-header">
+          <h3>🔄 待同步中心</h3>
+          <button class="crm-modal-close" data-close>×</button>
+        </div>
+        <div class="crm-modal-body">
+          <div class="crm-sync-summary">
+            <span>共 <strong id="syncTotalCount">0</strong> 条待同步数据</span>
+            <button class="crm-btn-secondary" id="syncAllBtn">✓ 全部标记已同步</button>
+          </div>
+          <div class="crm-sync-groups">
+            <div class="crm-sync-group">
+              <div class="crm-sync-group-head">
+                <span>📇 线索</span>
+                <span class="crm-badge" id="syncLeadCount">0</span>
+              </div>
+              <div class="crm-sync-items" id="syncLeadItems">
+                <div class="crm-empty">暂无待同步</div>
+              </div>
+            </div>
+            <div class="crm-sync-group">
+              <div class="crm-sync-group-head">
+                <span>⏰ 跟进</span>
+                <span class="crm-badge" id="syncFollowupCount">0</span>
+              </div>
+              <div class="crm-sync-items" id="syncFollowupItems">
+                <div class="crm-empty">暂无待同步</div>
+              </div>
+            </div>
+            <div class="crm-sync-group">
+              <div class="crm-sync-group-head">
+                <span>📝 纪要</span>
+                <span class="crm-badge" id="syncNoteCount">0</span>
+              </div>
+              <div class="crm-sync-items" id="syncNoteItems">
+                <div class="crm-empty">暂无待同步</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="crm-modal-overlay" id="addFollowUpModal">
+      <div class="crm-modal">
+        <div class="crm-modal-header">
+          <h3>➕ 新建跟进</h3>
+          <button class="crm-modal-close" data-close>×</button>
+        </div>
+        <div class="crm-modal-body">
+          <form id="addFollowUpForm" class="crm-form">
+            <div class="crm-form-group">
+              <label>选择客户 *</label>
+              <select id="fupLead" required>
+                <option value="">请选择客户</option>
+              </select>
+            </div>
+            <div class="crm-form-group">
+              <label>跟进主题 *</label>
+              <input type="text" id="fupTitle" placeholder="如：发送产品资料、电话沟通" required>
+            </div>
+            <div class="crm-form-row">
+              <div class="crm-form-group">
+                <label>日期 *</label>
+                <input type="date" id="fupDate" required>
+              </div>
+              <div class="crm-form-group">
+                <label>时间</label>
+                <input type="time" id="fupTime">
+              </div>
+            </div>
+            <div class="crm-form-group">
+              <label>沟通方式</label>
+              <select id="fupMethod">
+                <option value="call">📞 电话</option>
+                <option value="meeting">👥 会议</option>
+                <option value="email">📧 邮件</option>
+                <option value="visit">🏢 上门拜访</option>
+                <option value="wechat">💬 微信</option>
+                <option value="other">📌 其他</option>
+              </select>
+            </div>
+            <div class="crm-form-group">
+              <label>备注内容</label>
+              <textarea id="fupContent" rows="3" placeholder="跟进内容或备注..."></textarea>
+            </div>
+          </form>
+        </div>
+        <div class="crm-modal-footer">
+          <button class="crm-btn-secondary" data-close>取消</button>
+          <button class="crm-btn-primary" id="saveFollowUpBtn">保存</button>
         </div>
       </div>
     </div>

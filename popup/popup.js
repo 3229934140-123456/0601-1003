@@ -42,6 +42,21 @@
     { value: 'other', label: '其他', icon: '📌' }
   ];
 
+  const PRIORITY_OPTIONS = [
+    { value: 'high', label: '高优先级' },
+    { value: 'medium', label: '中优先级' },
+    { value: 'low', label: '低优先级' }
+  ];
+
+  const FOLLOWUP_METHODS = {
+    call: '电话',
+    wechat: '微信',
+    email: '邮件',
+    meeting: '会议',
+    visit: '上门拜访',
+    other: '其他'
+  };
+
   const NOTE_TYPE_LABELS = {
     communication: '沟通记录',
     meeting: '会议纪要',
@@ -59,13 +74,18 @@
     settings: {},
     activities: [],
     syncStatus: {},
-    currentView: 'leads',
+    currentView: 'dashboard',
     currentLead: null,
     selectedLeads: new Set(),
+    pendingSaveLead: null,
     leadFilters: {
       search: '',
       stage: '',
       source: '',
+      assignee: '',
+      tag: '',
+      priority: '',
+      favorite: false,
       sortBy: 'createdAt'
     },
     followupFilter: 'upcoming'
@@ -536,6 +556,7 @@
     });
 
     const viewMap = {
+      'dashboard': 'viewDashboard',
       'leads': 'viewLeads',
       'followups': 'viewFollowups',
       'notes': 'viewNotes',
@@ -548,7 +569,9 @@
       document.getElementById(viewId).classList.add('active');
     }
 
-    if (viewName === 'leads') {
+    if (viewName === 'dashboard') {
+      renderDashboard();
+    } else if (viewName === 'leads') {
       renderLeads();
     } else if (viewName === 'followups') {
       renderFollowUps();
@@ -580,6 +603,26 @@
 
     if (state.leadFilters.source) {
       leads = leads.filter(lead => lead.source === state.leadFilters.source);
+    }
+
+    if (state.leadFilters.assignee) {
+      leads = leads.filter(lead => 
+        (lead.assignee || '').toLowerCase() === state.leadFilters.assignee.toLowerCase()
+      );
+    }
+
+    if (state.leadFilters.tag) {
+      leads = leads.filter(lead => 
+        lead.tags && lead.tags.some(t => t === state.leadFilters.tag)
+      );
+    }
+
+    if (state.leadFilters.priority) {
+      leads = leads.filter(lead => lead.priority === state.leadFilters.priority);
+    }
+
+    if (state.leadFilters.favorite) {
+      leads = leads.filter(lead => lead.favorite === true);
     }
 
     const sortBy = state.leadFilters.sortBy;
@@ -664,15 +707,16 @@
       });
     }
 
-    document.getElementById('totalCount').textContent = state.leads.length;
+    document.getElementById('totalCount').textContent = leads.length;
 
     const now = new Date();
     const weekStart = new Date(now);
     weekStart.setDate(now.getDate() - now.getDay());
     weekStart.setHours(0, 0, 0, 0);
-    const weekCount = state.leads.filter(l => new Date(l.createdAt) >= weekStart).length;
+    const weekCount = leads.filter(l => new Date(l.createdAt) >= weekStart).length;
     document.getElementById('weekCount').textContent = weekCount;
 
+    updateClearFiltersBtn();
     updateBatchActions();
   }
 
@@ -905,11 +949,23 @@
   async function doSaveLead(leadData) {
     await saveLead(leadData);
     showToast('线索保存成功！', 'success');
+    closeModal('duplicateModal');
     closeModal('leadModal');
-    renderLeads();
+    state.pendingSaveLead = null;
+    state.duplicateList = null;
+    if (state.currentView === 'leads') {
+      renderLeads();
+    }
+    if (state.currentView === 'dashboard') {
+      renderDashboard();
+    }
+    updateFilterSelects();
   }
 
   function showDuplicateModal(duplicates, leadData) {
+    state.pendingSaveLead = leadData;
+    state.duplicateList = duplicates;
+
     const listEl = document.getElementById('duplicateList');
 
     const levelLabels = {
@@ -918,8 +974,8 @@
       low: { text: '轻度相似', class: 'low' }
     };
 
-    listEl.innerHTML = duplicates.slice(0, 5).map(d => `
-      <div class="crm-duplicate-item">
+    listEl.innerHTML = duplicates.slice(0, 5).map((d, idx) => `
+      <div class="crm-duplicate-item" data-lead-id="${d.lead.id}" data-index="${idx}">
         <div class="crm-duplicate-item-head">
           <span class="crm-duplicate-name">${escapeHtml(d.lead.companyName || '未知公司')}</span>
           <span class="crm-duplicate-score ${levelLabels[d.level].class}">${levelLabels[d.level].text} (${d.score}分)</span>
@@ -931,14 +987,6 @@
         </div>
       </div>
     `).join('');
-
-    const continueBtn = document.getElementById('continueSaveBtn');
-    const newBtn = continueBtn.cloneNode(true);
-    continueBtn.parentNode.replaceChild(newBtn, continueBtn);
-
-    newBtn.addEventListener('click', async () => {
-      await doSaveLead(leadData);
-    });
 
     document.getElementById('duplicateModal').classList.add('active');
   }
@@ -1186,21 +1234,64 @@
   }
 
   function initSelects() {
-    const stageSelects = document.querySelectorAll('#stageFilter, #leadStage');
-    stageSelects.forEach(select => {
-      const currentValue = select.value;
-      select.innerHTML = STAGE_OPTIONS.map(s =>
+    const stageFilter = document.getElementById('stageFilter');
+    if (stageFilter) {
+      const currentValue = stageFilter.value;
+      stageFilter.innerHTML = '<option value="">全部阶段</option>' +
+        STAGE_OPTIONS.map(s =>
+          `<option value="${s.value}" ${s.value === currentValue ? 'selected' : ''}>${s.label}</option>`
+        ).join('');
+    }
+
+    const leadStage = document.getElementById('leadStage');
+    if (leadStage) {
+      const currentValue = leadStage.value;
+      leadStage.innerHTML = STAGE_OPTIONS.map(s =>
         `<option value="${s.value}" ${s.value === currentValue ? 'selected' : ''}>${s.label}</option>`
       ).join('');
-    });
+    }
 
-    const sourceSelects = document.querySelectorAll('#sourceFilter, #leadSource, #defaultSource');
+    const sourceFilter = document.getElementById('sourceFilter');
+    if (sourceFilter) {
+      const currentValue = sourceFilter.value;
+      sourceFilter.innerHTML = '<option value="">全部来源</option>' +
+        SOURCE_OPTIONS.map(s =>
+          `<option value="${s.value}" ${s.value === currentValue ? 'selected' : ''}>${s.icon} ${s.label}</option>`
+        ).join('');
+    }
+
+    const sourceSelects = document.querySelectorAll('#leadSource, #defaultSource');
     sourceSelects.forEach(select => {
       const currentValue = select.value;
       select.innerHTML = SOURCE_OPTIONS.map(s =>
         `<option value="${s.value}" ${s.value === currentValue ? 'selected' : ''}>${s.icon} ${s.label}</option>`
       ).join('');
     });
+
+    const priorityFilter = document.getElementById('priorityFilter');
+    if (priorityFilter) {
+      const currentValue = priorityFilter.value;
+      priorityFilter.innerHTML = '<option value="">全部优先级</option>' +
+        PRIORITY_OPTIONS.map(p =>
+          `<option value="${p.value}" ${p.value === currentValue ? 'selected' : ''}>${p.label}</option>`
+        ).join('');
+    }
+
+    const leadPriority = document.getElementById('leadPriority');
+    if (leadPriority) {
+      const currentValue = leadPriority.value;
+      leadPriority.innerHTML = PRIORITY_OPTIONS.map(p =>
+        `<option value="${p.value}" ${p.value === currentValue ? 'selected' : ''}>${p.label}</option>`
+      ).join('');
+    }
+
+    const fupMethod = document.getElementById('fupMethod');
+    if (fupMethod) {
+      const currentValue = fupMethod.value;
+      fupMethod.innerHTML = FOLLOWUP_METHODS ? Object.entries(FOLLOWUP_METHODS).map(([k, v]) =>
+        `<option value="${k}" ${k === currentValue ? 'selected' : ''}>${v}</option>`
+      ).join('') : '';
+    }
   }
 
   function initEventListeners() {
@@ -1213,6 +1304,10 @@
     document.getElementById('addLeadBtn').addEventListener('click', () => openLeadModal());
     document.getElementById('emptyAddBtn')?.addEventListener('click', () => openLeadModal());
     document.getElementById('saveLeadBtn').addEventListener('click', handleSaveLead);
+    document.getElementById('syncIndicator').addEventListener('click', openSyncModal);
+
+    document.getElementById('markAllSyncedBtn').addEventListener('click', markAllSynced);
+
     document.getElementById('exportBtn').addEventListener('click', () => {
       const data = exportThisWeeksLeads();
       if (data.length === 0) {
@@ -1225,16 +1320,19 @@
 
     document.getElementById('leadSearch').addEventListener('input', (e) => {
       state.leadFilters.search = e.target.value;
+      updateClearFiltersBtn();
       renderLeads();
     });
 
     document.getElementById('stageFilter').addEventListener('change', (e) => {
       state.leadFilters.stage = e.target.value;
+      updateClearFiltersBtn();
       renderLeads();
     });
 
     document.getElementById('sourceFilter').addEventListener('change', (e) => {
       state.leadFilters.source = e.target.value;
+      updateClearFiltersBtn();
       renderLeads();
     });
 
@@ -1242,6 +1340,32 @@
       state.leadFilters.sortBy = e.target.value;
       renderLeads();
     });
+
+    document.getElementById('assigneeFilter').addEventListener('change', (e) => {
+      state.leadFilters.assignee = e.target.value;
+      updateClearFiltersBtn();
+      renderLeads();
+    });
+
+    document.getElementById('tagFilter').addEventListener('change', (e) => {
+      state.leadFilters.tag = e.target.value;
+      updateClearFiltersBtn();
+      renderLeads();
+    });
+
+    document.getElementById('priorityFilter').addEventListener('change', (e) => {
+      state.leadFilters.priority = e.target.value;
+      updateClearFiltersBtn();
+      renderLeads();
+    });
+
+    document.getElementById('favoriteFilter').addEventListener('change', (e) => {
+      state.leadFilters.favorite = e.target.checked;
+      updateClearFiltersBtn();
+      renderLeads();
+    });
+
+    document.getElementById('clearFiltersBtn').addEventListener('click', clearAllFilters);
 
     document.getElementById('batchTagBtn').addEventListener('click', async () => {
       const tagStr = prompt('请输入要添加的标签（多个标签用逗号分隔）：');
@@ -1287,9 +1411,9 @@
       });
     });
 
-    document.getElementById('addFollowUpBtn').addEventListener('click', () => {
-      alert('请在线索详情中添加跟进计划');
-    });
+    document.getElementById('addFollowUpBtn').addEventListener('click', openAddFollowUpModal);
+
+    document.getElementById('saveFollowUpModalBtn').addEventListener('click', handleSaveFollowUpFromModal);
 
     document.getElementById('visitPlanBtn').addEventListener('click', generateVisitPlan);
 
@@ -1520,17 +1644,19 @@
       showToast('客户画像已保存', 'success');
     });
 
-    document.getElementById('viewDuplicateBtn').addEventListener('click', () => {
-      closeModal('duplicateModal');
-    });
+    document.getElementById('viewDuplicateDetailBtn').addEventListener('click', handleViewDuplicateDetail);
+
+    document.getElementById('continueSaveBtn').addEventListener('click', handleContinueSave);
   }
 
   async function init() {
     await loadData();
     initSelects();
+    initFilterSelects();
     initEventListeners();
-    switchView('leads');
+    switchView('dashboard');
     updateSyncIndicator();
+    renderDashboard();
 
     chrome.storage.onChanged.addListener((changes, areaName) => {
       if (areaName === 'local') {
@@ -1538,6 +1664,25 @@
           state.leads = changes[STORAGE_KEYS.LEADS].newValue || [];
           if (state.currentView === 'leads') {
             renderLeads();
+          }
+          if (state.currentView === 'dashboard') {
+            renderDashboard();
+          }
+          updateFilterSelects();
+        }
+        if (changes[STORAGE_KEYS.FOLLOW_UPS]) {
+          state.followUps = changes[STORAGE_KEYS.FOLLOW_UPS].newValue || [];
+          if (state.currentView === 'followups') {
+            renderFollowUps();
+          }
+          if (state.currentView === 'dashboard') {
+            renderDashboard();
+          }
+        }
+        if (changes[STORAGE_KEYS.NOTES]) {
+          state.notes = changes[STORAGE_KEYS.NOTES].newValue || [];
+          if (state.currentView === 'notes') {
+            renderNotes();
           }
         }
         if (changes[STORAGE_KEYS.SYNC_STATUS]) {
@@ -1549,5 +1694,406 @@
   }
 
   document.addEventListener('DOMContentLoaded', init);
+
+  function renderDashboard() {
+    const now = new Date();
+    const weekStart = new Date(now);
+    weekStart.setDate(now.getDate() - now.getDay());
+    weekStart.setHours(0, 0, 0, 0);
+
+    const newLeads = state.leads.filter(l => new Date(l.createdAt) >= weekStart).length;
+    const favorites = state.leads.filter(l => l.favorite).length;
+
+    const upcoming = state.followUps.filter(f => !f.completed && f.date && new Date(f.date) >= now).length;
+    const overdue = state.followUps.filter(f => !f.completed && f.date && new Date(f.date) < now).length;
+
+    document.getElementById('statNewLeads').textContent = newLeads;
+    document.getElementById('statUpcoming').textContent = upcoming;
+    document.getElementById('statOverdue').textContent = overdue;
+    document.getElementById('statFavorites').textContent = favorites;
+
+    const stageData = {};
+    STAGE_OPTIONS.forEach(s => {
+      stageData[s.value] = { label: s.label, color: s.color, count: 0 };
+    });
+    state.leads.forEach(lead => {
+      if (stageData[lead.stage]) {
+        stageData[lead.stage].count++;
+      }
+    });
+
+    const maxStageCount = Math.max(...Object.values(stageData).map(s => s.count), 1);
+    const stageHtml = STAGE_OPTIONS.map(s => {
+      const data = stageData[s.value];
+      const percent = (data.count / maxStageCount) * 100;
+      return `
+        <div class="crm-distribution-item" data-stage="${s.value}">
+          <span class="crm-distribution-label">${data.label}</span>
+          <div class="crm-distribution-bar">
+            <div class="crm-distribution-fill" style="width: ${percent}%; background: ${data.color}"></div>
+          </div>
+          <span class="crm-distribution-count">${data.count}</span>
+        </div>
+      `;
+    }).join('');
+    document.getElementById('stageDistribution').innerHTML = stageHtml;
+
+    document.querySelectorAll('#stageDistribution .crm-distribution-item').forEach(item => {
+      item.addEventListener('click', () => {
+        state.leadFilters.stage = item.dataset.stage;
+        document.getElementById('stageFilter').value = item.dataset.stage;
+        switchView('leads');
+      });
+    });
+
+    const sourceData = {};
+    SOURCE_OPTIONS.forEach(s => {
+      sourceData[s.value] = { label: s.label, icon: s.icon, count: 0 };
+    });
+    state.leads.forEach(lead => {
+      if (sourceData[lead.source]) {
+        sourceData[lead.source].count++;
+      }
+    });
+
+    const maxSourceCount = Math.max(...Object.values(sourceData).map(s => s.count), 1);
+    const sourceHtml = SOURCE_OPTIONS.map(s => {
+      const data = sourceData[s.value];
+      const percent = (data.count / maxSourceCount) * 100;
+      return `
+        <div class="crm-distribution-item" data-source="${s.value}">
+          <span class="crm-distribution-label">${data.icon} ${data.label}</span>
+          <div class="crm-distribution-bar">
+            <div class="crm-distribution-fill" style="width: ${percent}%; background: #667eea"></div>
+          </div>
+          <span class="crm-distribution-count">${data.count}</span>
+        </div>
+      `;
+    }).join('');
+    document.getElementById('sourceDistribution').innerHTML = sourceHtml;
+
+    document.querySelectorAll('#sourceDistribution .crm-distribution-item').forEach(item => {
+      item.addEventListener('click', () => {
+        state.leadFilters.source = item.dataset.source;
+        document.getElementById('sourceFilter').value = item.dataset.source;
+        switchView('leads');
+      });
+    });
+
+    document.querySelectorAll('.crm-stat-card[data-stat]').forEach(card => {
+      card.onclick = () => {
+        const stat = card.dataset.stat;
+        if (stat === 'newLeads') {
+          switchView('leads');
+        } else if (stat === 'upcoming' || stat === 'overdue') {
+          if (stat === 'overdue') {
+            state.followupFilter = 'upcoming';
+            document.querySelectorAll('.crm-followup-tab').forEach(t => {
+              t.classList.toggle('active', t.dataset.filter === 'upcoming');
+            });
+          }
+          switchView('followups');
+        } else if (stat === 'favorites') {
+          state.leadFilters.favorite = true;
+          document.getElementById('favoriteFilter').checked = true;
+          updateClearFiltersBtn();
+          switchView('leads');
+        }
+      };
+    });
+  }
+
+  function initFilterSelects() {
+    updateFilterSelects();
+  }
+
+  function updateFilterSelects() {
+    const assignees = [...new Set(state.leads.map(l => l.assignee).filter(a => a))].sort();
+    const assigneeSelect = document.getElementById('assigneeFilter');
+    if (assigneeSelect) {
+      const currentValue = assigneeSelect.value;
+      assigneeSelect.innerHTML = '<option value="">全部负责人</option>' +
+        assignees.map(a => `<option value="${escapeHtml(a)}" ${a === currentValue ? 'selected' : ''}>${escapeHtml(a)}</option>`).join('');
+    }
+
+    const allTags = new Set();
+    state.leads.forEach(l => {
+      if (l.tags) {
+        l.tags.forEach(t => allTags.add(t));
+      }
+    });
+    const tagSelect = document.getElementById('tagFilter');
+    if (tagSelect) {
+      const currentValue = tagSelect.value;
+      tagSelect.innerHTML = '<option value="">全部标签</option>' +
+        [...allTags].sort().map(t => `<option value="${escapeHtml(t)}" ${t === currentValue ? 'selected' : ''}>${escapeHtml(t)}</option>`).join('');
+    }
+  }
+
+  function updateClearFiltersBtn() {
+    const hasFilters = state.leadFilters.search ||
+      state.leadFilters.stage ||
+      state.leadFilters.source ||
+      state.leadFilters.assignee ||
+      state.leadFilters.tag ||
+      state.leadFilters.priority ||
+      state.leadFilters.favorite;
+
+    const btn = document.getElementById('clearFiltersBtn');
+    if (btn) {
+      btn.style.display = hasFilters ? 'block' : 'none';
+    }
+  }
+
+  function clearAllFilters() {
+    state.leadFilters = {
+      search: '',
+      stage: '',
+      source: '',
+      assignee: '',
+      tag: '',
+      priority: '',
+      favorite: false,
+      sortBy: state.leadFilters.sortBy
+    };
+
+    document.getElementById('leadSearch').value = '';
+    document.getElementById('stageFilter').value = '';
+    document.getElementById('sourceFilter').value = '';
+    document.getElementById('assigneeFilter').value = '';
+    document.getElementById('tagFilter').value = '';
+    document.getElementById('priorityFilter').value = '';
+    document.getElementById('favoriteFilter').checked = false;
+
+    updateClearFiltersBtn();
+    renderLeads();
+  }
+
+  function openSyncModal() {
+    renderSyncDetails();
+    document.getElementById('syncModal').classList.add('active');
+  }
+
+  function renderSyncDetails() {
+    const dirtyLeads = state.leads.filter(l => l.syncState === SYNC_STATE.DIRTY);
+    const dirtyFollowUps = state.followUps.filter(f => f.syncState === SYNC_STATE.DIRTY);
+    const dirtyNotes = state.notes.filter(n => n.syncState === SYNC_STATE.DIRTY);
+
+    const total = dirtyLeads.length + dirtyFollowUps.length + dirtyNotes.length;
+    document.getElementById('syncTotalCount').textContent = total;
+    document.getElementById('syncLeadCount').textContent = dirtyLeads.length;
+    document.getElementById('syncFollowupCount').textContent = dirtyFollowUps.length;
+    document.getElementById('syncNoteCount').textContent = dirtyNotes.length;
+
+    const leadItemsEl = document.getElementById('syncLeadItems');
+    if (dirtyLeads.length === 0) {
+      leadItemsEl.innerHTML = '<div class="crm-empty">暂无待同步</div>';
+    } else {
+      leadItemsEl.innerHTML = dirtyLeads.map(l => `
+        <div class="crm-sync-item">
+          <span class="crm-sync-item-title" title="${escapeHtml(l.companyName || '')}">${escapeHtml(l.companyName || '未知')}</span>
+          <span class="crm-sync-item-time">${formatDate(l.updatedAt)}</span>
+          <button class="crm-sync-item-action" data-sync-lead="${l.id}">已同步</button>
+        </div>
+      `).join('');
+
+      leadItemsEl.querySelectorAll('[data-sync-lead]').forEach(btn => {
+        btn.addEventListener('click', async (e) => {
+          e.stopPropagation();
+          const id = btn.dataset.syncLead;
+          await markLeadSynced(id);
+          renderSyncDetails();
+          updateSyncIndicator();
+        });
+      });
+    }
+
+    const followupItemsEl = document.getElementById('syncFollowupItems');
+    if (dirtyFollowUps.length === 0) {
+      followupItemsEl.innerHTML = '<div class="crm-empty">暂无待同步</div>';
+    } else {
+      followupItemsEl.innerHTML = dirtyFollowUps.map(f => {
+        const lead = state.leads.find(l => l.id === f.leadId);
+        return `
+          <div class="crm-sync-item">
+            <span class="crm-sync-item-title" title="${escapeHtml(f.title || '')}">${escapeHtml(f.title || '未命名')}</span>
+            <span class="crm-sync-item-time">${lead ? escapeHtml(lead.companyName) : ''}</span>
+            <button class="crm-sync-item-action" data-sync-followup="${f.id}">已同步</button>
+          </div>
+        `;
+      }).join('');
+
+      followupItemsEl.querySelectorAll('[data-sync-followup]').forEach(btn => {
+        btn.addEventListener('click', async (e) => {
+          e.stopPropagation();
+          const id = btn.dataset.syncFollowup;
+          await markFollowUpSynced(id);
+          renderSyncDetails();
+          updateSyncIndicator();
+        });
+      });
+    }
+
+    const noteItemsEl = document.getElementById('syncNoteItems');
+    if (dirtyNotes.length === 0) {
+      noteItemsEl.innerHTML = '<div class="crm-empty">暂无待同步</div>';
+    } else {
+      noteItemsEl.innerHTML = dirtyNotes.map(n => {
+        const lead = state.leads.find(l => l.id === n.leadId);
+        const content = (n.content || '').substring(0, 20);
+        return `
+          <div class="crm-sync-item">
+            <span class="crm-sync-item-title" title="${escapeHtml(n.content || '')}">${escapeHtml(content || '无内容')}...</span>
+            <span class="crm-sync-item-time">${lead ? escapeHtml(lead.companyName) : ''}</span>
+            <button class="crm-sync-item-action" data-sync-note="${n.id}">已同步</button>
+          </div>
+        `;
+      }).join('');
+
+      noteItemsEl.querySelectorAll('[data-sync-note]').forEach(btn => {
+        btn.addEventListener('click', async (e) => {
+          e.stopPropagation();
+          const id = btn.dataset.syncNote;
+          await markNoteSynced(id);
+          renderSyncDetails();
+          updateSyncIndicator();
+        });
+      });
+    }
+  }
+
+  async function markLeadSynced(id) {
+    const leads = state.leads.map(l => {
+      if (l.id === id) {
+        return { ...l, syncState: SYNC_STATE.SYNCED };
+      }
+      return l;
+    });
+    state.leads = leads;
+    await setStorage(STORAGE_KEYS.LEADS, leads);
+    await updateSyncStatus();
+  }
+
+  async function markFollowUpSynced(id) {
+    const followUps = state.followUps.map(f => {
+      if (f.id === id) {
+        return { ...f, syncState: SYNC_STATE.SYNCED };
+      }
+      return f;
+    });
+    state.followUps = followUps;
+    await setStorage(STORAGE_KEYS.FOLLOW_UPS, followUps);
+    await updateSyncStatus();
+  }
+
+  async function markNoteSynced(id) {
+    const notes = state.notes.map(n => {
+      if (n.id === id) {
+        return { ...n, syncState: SYNC_STATE.SYNCED };
+      }
+      return n;
+    });
+    state.notes = notes;
+    await setStorage(STORAGE_KEYS.NOTES, notes);
+    await updateSyncStatus();
+  }
+
+  async function markAllSynced() {
+    const leads = state.leads.map(l => ({ ...l, syncState: SYNC_STATE.SYNCED }));
+    const followUps = state.followUps.map(f => ({ ...f, syncState: SYNC_STATE.SYNCED }));
+    const notes = state.notes.map(n => ({ ...n, syncState: SYNC_STATE.SYNCED }));
+
+    state.leads = leads;
+    state.followUps = followUps;
+    state.notes = notes;
+
+    await Promise.all([
+      setStorage(STORAGE_KEYS.LEADS, leads),
+      setStorage(STORAGE_KEYS.FOLLOW_UPS, followUps),
+      setStorage(STORAGE_KEYS.NOTES, notes)
+    ]);
+
+    await updateSyncStatus();
+    renderSyncDetails();
+    showToast('全部已标记为已同步', 'success');
+  }
+
+  function openAddFollowUpModal() {
+    const leadSelect = document.getElementById('fupLead');
+    leadSelect.innerHTML = '<option value="">请选择客户</option>' +
+      state.leads.map(l => `<option value="${l.id}">${escapeHtml(l.companyName)}</option>`).join('');
+
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    document.getElementById('fupDate').value = formatDate(tomorrow.toISOString());
+    document.getElementById('fupTime').value = '10:00';
+    document.getElementById('fupTitle').value = '';
+    document.getElementById('fupContent').value = '';
+    document.getElementById('fupMethod').value = 'call';
+
+    document.getElementById('addFollowUpModal').classList.add('active');
+  }
+
+  async function handleSaveFollowUpFromModal() {
+    const leadId = document.getElementById('fupLead').value;
+    const title = document.getElementById('fupTitle').value.trim();
+    const date = document.getElementById('fupDate').value;
+    const time = document.getElementById('fupTime').value;
+    const method = document.getElementById('fupMethod').value;
+    const content = document.getElementById('fupContent').value.trim();
+
+    if (!leadId) {
+      showToast('请选择客户', 'error');
+      return;
+    }
+    if (!title) {
+      showToast('请输入跟进主题', 'error');
+      return;
+    }
+    if (!date) {
+      showToast('请选择跟进日期', 'error');
+      return;
+    }
+
+    let dateTime = date;
+    if (time) {
+      dateTime = `${date}T${time}:00`;
+    }
+
+    await saveFollowUp({
+      leadId: leadId,
+      title: title,
+      date: dateTime,
+      time: time,
+      method: method,
+      content: content
+    });
+
+    closeModal('addFollowUpModal');
+    showToast('跟进创建成功', 'success');
+
+    if (state.currentView === 'followups') {
+      renderFollowUps();
+    }
+    if (state.currentView === 'dashboard') {
+      renderDashboard();
+    }
+  }
+
+  async function handleContinueSave() {
+    if (state.pendingSaveLead) {
+      await doSaveLead(state.pendingSaveLead);
+      state.pendingSaveLead = null;
+    }
+  }
+
+  function handleViewDuplicateDetail() {
+    if (state.duplicateList && state.duplicateList.length > 0) {
+      const leadId = state.duplicateList[0].lead.id;
+      closeModal('duplicateModal');
+      closeModal('leadModal');
+      openLeadDetail(leadId);
+    }
+  }
 
 })();

@@ -613,6 +613,8 @@
       chrome.runtime.sendMessage({ type: 'OPEN_POPUP' });
     });
 
+    document.getElementById('crmSyncStatus').addEventListener('click', showSyncPreview);
+
     document.getElementById('crmCompanyName').addEventListener('blur', checkDuplicateOnInput);
     document.getElementById('crmWebsite').addEventListener('blur', checkDuplicateOnInput);
     document.getElementById('crmEmail').addEventListener('blur', checkDuplicateOnInput);
@@ -1217,5 +1219,79 @@
     }
     return true;
   });
+
+  chrome.storage.onChanged.addListener((changes, areaName) => {
+    if (areaName === 'local') {
+      if (changes[STORAGE_KEYS.SYNC_STATUS]) {
+        updateSyncStatus();
+      }
+      if (changes[STORAGE_KEYS.LEADS]) {
+        if (document.querySelector('.crm-tab-btn.active')?.dataset.tab === 'leads') {
+          loadLeadsList();
+        }
+      }
+      if (changes[STORAGE_KEYS.FOLLOW_UPS]) {
+        if (document.querySelector('.crm-tab-btn.active')?.dataset.tab === 'followup') {
+          loadFollowUpTabData();
+        }
+      }
+      if (changes[STORAGE_KEYS.NOTES]) {
+        if (document.querySelector('.crm-tab-btn.active')?.dataset.tab === 'record') {
+          loadNotesTabData();
+        }
+      }
+    }
+  });
+
+  function showSyncPreview() {
+    const syncEl = document.getElementById('crmSyncStatus');
+    const existing = document.getElementById('crmSyncPreview');
+    if (existing) {
+      existing.remove();
+      return;
+    }
+
+    chrome.storage.local.get([STORAGE_KEYS.LEADS, STORAGE_KEYS.FOLLOW_UPS, STORAGE_KEYS.NOTES], (result) => {
+      const leads = result[STORAGE_KEYS.LEADS] || [];
+      const followUps = result[STORAGE_KEYS.FOLLOW_UPS] || [];
+      const notes = result[STORAGE_KEYS.NOTES] || [];
+
+      const dirtyLeads = leads.filter(l => l.syncState === SYNC_STATE.DIRTY);
+      const dirtyFollowUps = followUps.filter(f => f.syncState === SYNC_STATE.DIRTY);
+      const dirtyNotes = notes.filter(n => n.syncState === SYNC_STATE.DIRTY);
+
+      const preview = document.createElement('div');
+      preview.id = 'crmSyncPreview';
+      preview.className = 'crm-sync-preview';
+      preview.innerHTML = `
+        <div class="crm-sync-preview-title">待同步明细</div>
+        <div class="crm-sync-preview-group">
+          <span>📋 线索</span>
+          <span class="crm-sync-preview-count">${dirtyLeads.length} 条</span>
+        </div>
+        <div class="crm-sync-preview-group">
+          <span>📅 跟进</span>
+          <span class="crm-sync-preview-count">${dirtyFollowUps.length} 条</span>
+        </div>
+        <div class="crm-sync-preview-group">
+          <span>📝 纪要</span>
+          <span class="crm-sync-preview-count">${dirtyNotes.length} 条</span>
+        </div>
+        <div class="crm-sync-preview-tip">点击插件图标查看详情</div>
+      `;
+
+      document.body.appendChild(preview);
+
+      const rect = syncEl.getBoundingClientRect();
+      preview.style.right = (window.innerWidth - rect.right + 10) + 'px';
+      preview.style.top = (rect.bottom + window.scrollY + 5) + 'px';
+
+      setTimeout(() => preview.classList.add('show'), 10);
+
+      setTimeout(() => {
+        preview.addEventListener('click', () => preview.remove());
+      }, 100);
+    });
+  }
 
 })();
